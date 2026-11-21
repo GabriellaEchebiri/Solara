@@ -267,8 +267,10 @@ footer ul a:hover{border-color:currentColor}
 .co-form select{-webkit-appearance:none;appearance:none;padding-right:2.8rem;background:#fbfcf9 url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%2310302A' stroke-width='2.6' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E") right 1rem center/18px no-repeat}
 .co-form .demo{font-size:.85rem;color:#4a625b}
 .co-form .btn--orange:hover{background:var(--ink);color:var(--white)}
-.co-done{position:absolute;inset:0;z-index:4;background:var(--green);display:grid;place-items:center;align-content:center;gap:1rem;opacity:0;visibility:hidden;transition:opacity .4s;padding:2rem 1rem;overflow:hidden}
+.co-done{position:fixed;inset:0;z-index:8;background:var(--green);display:grid;place-items:center;align-content:center;gap:1rem;opacity:0;visibility:hidden;transition:opacity .4s;padding:2rem 1rem;overflow:hidden}
 .co-done.show{opacity:1;visibility:visible}
+.co.done{overflow:hidden}
+.co.done .co-grid,.co.done .co-back{visibility:hidden}
 .stamp{font:400 clamp(6rem,24vw,17rem)/.85 var(--display);text-transform:uppercase;color:var(--orange);transform:rotate(-6deg) scale(3);opacity:0}
 .co-done.show .stamp{animation:stamp .7s .1s cubic-bezier(.2,.9,.3,1.2) forwards}
 @keyframes stamp{0%{transform:rotate(-6deg) scale(3);opacity:0}60%{opacity:1}100%{transform:rotate(-6deg) scale(1);opacity:1}}
@@ -762,9 +764,10 @@ footer ul a:hover{border-color:currentColor}
     ORDER.forEach(function(id){ if(Q[id]){ var li=document.createElement('li'); li.innerHTML='<span>'+Q[id]+' &times; '+P[id].name+'</span><span>'+money(Q[id]*P[id].price)+'</span>'; s.appendChild(li);} });
     var tl=document.createElement('li'); tl.className='tot'; tl.innerHTML='<span>Total</span><span>'+money(sum())+'</span>'; s.appendChild(tl);
     $('ageBox').hidden=!Q.noir; form.age.required=!!Q.noir;
+    try{fv.load();var pr=fv.play();if(pr&&pr.then)pr.then(function(){fv.pause();fv.currentTime=0}).catch(function(){})}catch(_){}
     psh(.22); co.classList.add('open'); co.setAttribute('aria-hidden','false'); setTimeout(function(){form.n.focus()},700);
   }
-  function closeCo(){ co.classList.remove('open'); co.setAttribute('aria-hidden','true'); }
+  function closeCo(){ co.classList.remove('done'); co.classList.remove('open'); co.setAttribute('aria-hidden','true'); }
   $('goCo').addEventListener('click',openCo); $('coBack').addEventListener('click',closeCo);
   document.addEventListener('keydown',function(e){ if(e.key==='Escape'){ if(co.classList.contains('open')&&!$('coDone').classList.contains('show'))closeCo(); else if(drawer.classList.contains('open'))closeDrawer(); } });
 
@@ -786,12 +789,20 @@ footer ul a:hover{border-color:currentColor}
   fv.addEventListener('loadeddata',function(){fvOk=true}); fv.addEventListener('canplay',function(){fvOk=true}); fv.addEventListener('error',function(){fvOk=false});
   function flood(done){
     if(reduce){done();return;}
-    if(fvOk||fv.readyState>=2){
-      fv.currentTime=0; fv.classList.add('on'); var pp=fv.play(); if(pp&&pp.catch)pp.catch(function(){});
+    var started=false;
+    function useVideo(){
+      if(started)return; started=true;
+      fv.currentTime=0; fv.classList.add('on');
       psh(.26,true); setTimeout(function(){psh(.2)},300);
       setTimeout(done,2000); setTimeout(function(){fv.classList.remove('on');fv.pause()},3900);
-      return;
     }
+    function useCanvas(){ if(started)return; started=true; drawFallback(done); }
+    var p2; try{ p2=fv.play(); }catch(_){}
+    if(p2&&p2.then){ p2.then(useVideo).catch(useCanvas); setTimeout(function(){ if(!started&&fv.readyState<2)useCanvas(); },1500); }
+    else if(fvOk||fv.readyState>=2){ useVideo(); }
+    else useCanvas();
+  }
+  function drawFallback(done){
     cv.width=innerWidth; cv.height=innerHeight;
     var kinds=[]; ORDER.forEach(function(id){ if(Q[id]){ for(var j=0;j<Math.min(40,10+Q[id]*6);j++) kinds.push(MAP[id][j%4]); } });
     if(!kinds.length) kinds=['lemon'];
@@ -813,10 +824,10 @@ footer ul a:hover{border-color:currentColor}
     var items=ORDER.filter(function(id){return Q[id]}).map(function(id){return '<li><span>'+Q[id]+' &times; '+P[id].name+'</span><span>'+money(Q[id]*P[id].price)+'</span></li>'}).join('');
     var no='SOL-'+(1000+Math.floor(Math.random()*9000));
     $('receipt').innerHTML='<h3>SOLARA receipt</h3><small>Order '+no+'</small><ul>'+items+'<li class="tot"><span>Total</span><span>'+money(sum())+'</span></li></ul><small>Thank you for choosing the sun.</small>';
-    flood(function(){ $('coDone').classList.add('show'); psh(.28); });
+    flood(function(){ co.classList.add('done'); $('coDone').classList.add('show'); psh(.28); });
   });
   $('coEnd').addEventListener('click',function(){
-    $('coDone').classList.remove('show'); closeCo(); closeDrawer();
+    $('coDone').classList.remove('show'); co.classList.remove('done'); closeCo(); closeDrawer();
     Q={mango:0,yuzu:0,noir:0}; seq=[]; lastTotal=0; hold=false; form.reset(); render(); setCount(0);
   });
   render();
