@@ -599,6 +599,7 @@ footer ul a:hover{border-color:currentColor}
     <div class="stamp" aria-hidden="true">psh!</div>
     <div class="slotwrap"><div class="receipt" id="receipt"></div></div>
     <p class="msg">Pack sorted. Cold cans are on the way.</p>
+    <button class="btn" id="coDl" type="button">Download receipt</button>
     <button class="btn" id="coEnd" type="button">Back to the shop</button>
   </div>
 </section>
@@ -823,11 +824,38 @@ footer ul a:hover{border-color:currentColor}
       if(T<3000) requestAnimationFrame(f); else cx2.clearRect(0,0,W,H);
     })(t0);
   }
+  var lastOrder=null;
+  /* draw the receipt to a canvas and save it as a PNG */
+  function downloadReceipt(){
+    var o=lastOrder; if(!o)return;
+    var W=640, pad=44, rowH=44, H=pad*2+300+o.rows.length*rowH, k=2, c=document.createElement('canvas');
+    c.width=W*k; c.height=H*k; var x=c.getContext('2d'); x.scale(k,k);
+    var F='"Hanken Grotesk",system-ui,-apple-system,Segoe UI,Arial,sans-serif';
+    x.fillStyle='#FFFFFF'; x.fillRect(0,0,W,H);
+    x.fillStyle='#0B5D45'; x.fillRect(0,0,W,12);
+    var y=pad+24; x.textBaseline='alphabetic';
+    x.fillStyle='#0B5D45'; x.font='700 34px '+F; x.fillText('SOLARA receipt',pad,y);
+    y+=34; x.fillStyle='#4a625b'; x.font='500 18px '+F; x.fillText('Order '+o.no,pad,y);
+    y+=26; x.fillText(o.date.toLocaleString(),pad,y);
+    y+=26; x.fillText('Payment: '+o.pay,pad,y);
+    y+=26; x.setLineDash([8,6]); x.strokeStyle='#10302A'; x.lineWidth=1.5; x.beginPath(); x.moveTo(pad,y); x.lineTo(W-pad,y); x.stroke();
+    y+=36; x.fillStyle='#10302A'; x.font='500 22px '+F;
+    o.rows.forEach(function(r){ x.textAlign='left'; x.fillText(r[0],pad,y); x.textAlign='right'; x.fillText(r[1],W-pad,y); y+=rowH; });
+    y-=rowH-14; x.beginPath(); x.moveTo(pad,y); x.lineTo(W-pad,y); x.stroke(); x.setLineDash([]);
+    y+=40; x.font='700 26px '+F; x.textAlign='left'; x.fillText('Total',pad,y); x.textAlign='right'; x.fillText(o.total,W-pad,y);
+    y+=56; x.textAlign='left'; x.fillStyle='#4a625b'; x.font='500 18px '+F; x.fillText('Thank you for choosing the sun.',pad,y);
+    c.toBlob(function(b){
+      if(!b)return; var u=URL.createObjectURL(b), a=document.createElement('a'); a.href=u; a.download='SOLARA-receipt-'+o.no+'.png';
+      document.body.appendChild(a); a.click(); a.remove(); setTimeout(function(){URL.revokeObjectURL(u)},4000);
+    },'image/png');
+  }
+  $('coDl').addEventListener('click',downloadReceipt);
   form.addEventListener('submit',function(e){
     e.preventDefault();
     if(!form.reportValidity())return;
     var items=ORDER.filter(function(id){return Q[id]}).map(function(id){return '<li><span>'+Q[id]+' &times; '+P[id].name+'</span><span>'+money(Q[id]*P[id].price)+'</span></li>'}).join('');
     var no='SOL-'+(1000+Math.floor(Math.random()*9000));
+    lastOrder={no:no,date:new Date(),pay:form.m.value,rows:ORDER.filter(function(id){return Q[id]}).map(function(id){return [Q[id]+' x '+P[id].name,money(Q[id]*P[id].price)]}),total:money(sum())};
     $('receipt').innerHTML='<h3>SOLARA receipt</h3><small>Order '+no+'</small><ul>'+items+'<li class="tot"><span>Total</span><span>'+money(sum())+'</span></li></ul><small>Thank you for choosing the sun.</small>';
     flood(function(){ co.classList.add('done'); $('coDone').classList.add('show'); psh(.28); });
   });
